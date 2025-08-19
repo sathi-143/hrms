@@ -9,16 +9,50 @@ on:
       - main
 
       - develop
+
+  pull_request:
+
+    branches:
+
+      - main
+
+      - develop
  
 jobs:
 
   test:
 
     runs-on: ubuntu-latest
+
+    services:
+
+      mariadb:
+
+        image: mariadb:10.5
+
+        env:
+
+          MYSQL_ROOT_PASSWORD: root
+
+        ports:
+
+          - 3306:3306
+
+        options: >-
+
+          --health-cmd="mysqladmin ping --silent"
+
+          --health-interval=10s
+
+          --health-timeout=5s
+
+          --health-retries=5
  
     steps:
 
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+
+        uses: actions/checkout@v4
  
       - name: Set up Python
 
@@ -26,25 +60,47 @@ jobs:
 
         with:
 
-          python-version: 3.11
+          python-version: "3.11"
  
-      - name: Install dependencies
+      - name: Install bench and requirements
 
         run: |
 
           pip install frappe-bench
 
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+ 
+      - name: Wait for MariaDB
 
-       - name: Setup site
+        run: |
 
-          run: |
+          until mysqladmin ping -h 127.0.0.1 --silent; do
 
-          bench init test-bench --frappe-branch version-15
+            echo "Waiting for MariaDB to be ready..."
+
+            sleep 5
+
+          done
+ 
+      - name: Setup site
+
+        run: |
+
+          bench init test-bench --frappe-branch version-15 --skip-redis-config-generation
 
           cd test-bench
 
-          bench new-site test-site --db-root-password root --admin-password admin --install-app hrms
+          bench new-site test-site \
+
+            --db-root-password root \
+
+            --admin-password admin \
+
+            --mariadb-root-username root
+
+          bench get-app hrms $GITHUB_WORKSPACE
+
+          bench --site test-site install-app hrms
  
       - name: Run tests
 
