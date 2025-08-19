@@ -1,29 +1,57 @@
 name: CICD
  
 on:
+
   push:
+
     branches:
+
       - main
+
       - develop
  
 jobs:
+
   test:
+
     runs-on: ubuntu-latest
  
     steps:
+
       - uses: actions/checkout@v4
  
       - name: Set up Python
+
         uses: actions/setup-python@v4
+
         with:
+
           python-version: 3.11
  
       - name: Install dependencies
+
         run: |
+
           pip install frappe-bench
+
           pip install -r requirements.txt
+
+       - name: Setup site
+
+          run: |
+
+          bench init test-bench --frappe-branch version-15
+
+          cd test-bench
+
+          bench new-site test-site --db-root-password root --admin-password admin --install-app hrms
  
       - name: Run tests
+
         run: |
+
           cd test-bench
+
           bench --site test-site run-tests --app hrms
+
+ 
